@@ -61,16 +61,25 @@ while lastPage != True:
 		file = urllib.urlopen(url)
 	except:
 		print "Probably wrong URL. quitting\n"
+		raw_input("press any key to exit\n")
 		exit()
 
 	tempContent = file.read()
-	pageList = re.findall('<a href="/products/.*', tempContent)
+
+	pageList = re.findall('product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n', tempContent)
+	pageList += re.findall('item[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{2,40}title[a-zA-Z0-9\-_\"></ .= ]{6,41}\n', tempContent)
+	pageList += re.findall('product-card__name[a-zA-Z0-9\-_\"></ =.]{2,40}\n',tempContent)
+
+	if 'items-product-title"></span>\n' in pageList:
+		pageList.remove('product-title"></span>\n')
+
 	newList += pageList
+	print pageList
 
 	#Check if last
-	nextCheck = re.findall('<span class="next">', tempContent)
+	nextCheck = re.findall('next', tempContent)
 
-	if len(nextCheck) == 0:
+	if len(nextCheck) == 0 or len(pageList) <= 4:
 		lastPage = True
 
 	page += 1
@@ -124,3 +133,6 @@ if not lastListExists:
 	dataStore = open("data/" + firstFileName, 'w')
 	simplejson.dump(newList, dataStore)
 	dataStore.close()
+
+raw_input("press any key to exit\n")
+
