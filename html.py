@@ -44,7 +44,7 @@ def getNewList(userUrl, pattern, nextPattern):
 			pageList.remove('product-title"></span>\n')
 
 		newList += pageList
-		print pageList
+		#print pageList
 
 		#Check if last
 		nextCheck = re.findall(nextPattern, tempContent)
@@ -57,52 +57,63 @@ def getNewList(userUrl, pattern, nextPattern):
 	return newList
 
 
-def saveLog(newList, lastList, siteName, dateString, baseSiteUrl):
+def saveLog(newList, lastList, siteName, dateString, baseSiteUrl, namePattern):
 	log = ""
 
 	for newProduct in newList:
 
 		#find the search link for the item
 		searchLink = ""
-		productName = re.search('>[a-zA-Z ]*?<', newProduct)
-		productName = productName.group(0)[1:len(productName.group(0))-1]
-		words = productName.split(' ')
-		searchLink = baseSiteUrl + "search?q="
-		for word in words:
-			searchLink += word + "+"
-		if searchLink[len(searchLink) - 1] == '+':
-			searchLink = searchLink[0:len(searchLink) - 1]
+		productName = re.search(namePattern, newProduct)
+
+		if productName != None:
+			productName = productName.group(0)[1:len(productName.group(0))-1]
+			words = productName.split(' ')
+			searchLink = baseSiteUrl + "search?q="
+			for word in words:
+				searchLink += word + "+"
+			if searchLink[len(searchLink) - 1] == '+':
+				searchLink = searchLink[0:len(searchLink) - 1]
+		else:
+			productName = "Name not found. notify matan please. info: " + newProduct + " "
 
 		#check if new item
 		if newProduct not in lastList:
-			log += "product:"
+			log += "product: "
 			log += productName
 			log += "\n"
 			log += "newly added to spot (new best seller)" + str(newList.index(newProduct)) 
 			log += "\n"
 			if searchLink != "":
-						log += "search link : {}\n".format(searchLink)
+						log += "search link : {}\n\n".format(searchLink)
 
 		#check if item upgraded in spot
 		for lastProduct in lastList:
 			if (newProduct == lastProduct) and (newList.index(newProduct) != lastList.index(lastProduct)):
 				if (newList.index(newProduct) < lastList.index(lastProduct)):
-					log += "product:"
+					log += "product: "
 					log += productName
-					log += "changed from spot " + str(lastList.index(lastProduct)) 
-					log += "to spot " + str(newList.index(newProduct))
+					log += " changed from spot " + str(lastList.index(lastProduct)) 
+					log += " to spot " + str(newList.index(newProduct))
 					log += "\t (jumped {})".format(lastList.index(lastProduct) - newList.index(newProduct))
 					log += "\n"
 					if searchLink != "":
-						log += "search link : {}\n".format(searchLink)
+						log += "search link : {}\n\n".format(searchLink)
 
 	#check if item removed
 	for lastProduct in lastList:
 		if lastProduct not in newList:
-			log += "product:"
+			productName = re.search(namePattern, lastProduct)
+
+			if productName != None:
+				productName = productName.group(0)[1:len(productName.group(0))-1]
+			else:
+				productName = "Name not found. notify matan please. info: " + newProduct + " "
+
+			log += "product: "
 			log += productName
 			log += "\n"
-			log += "was removed from the site (probably shit product eh?)\n"
+			log += "was removed from the site (probably shit product eh?)\n\n"
 
 
 	#check if need to create this date's dir
@@ -125,19 +136,29 @@ sites = {"lucidfashionshop" : "https://lucidfashionshop.com/collections/",
  		"thebohoboutique" : "https://thebohoboutique.com/collections/",
  		"ariavoss" : "https://ariavoss.com/collections/",
  		"blushque" : "https://www.blushque.com/collections/",
- 		"bikinimas" : "https://bikinimas.com/collections/"}
+ 		"bikinimas" : "https://bikinimas.com/collections/",
+ 		"dreamclosetcouture" : "https://dreamclosetcouture.us/collections/"}
 
 patterns = {"lucidfashionshop" : 'product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n',
  		"thebohoboutique" : 'item[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{2,40}title[a-zA-Z0-9\-_\"></ .= ]{6,41}\n',
  		"ariavoss" : 'product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n',
  		"blushque" : 'product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n',
- 		"bikinimas" : 'product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n'}
+ 		"bikinimas" : 'product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n',
+ 		"dreamclosetcouture" : 'product-card__name[a-zA-Z0-9\-_\"></ =.]{2,40}\n'}
 
 nextPatterns = {"lucidfashionshop" : 'next',
  		"thebohoboutique" : 'next',
  		"ariavoss" : 'next',
  		"blushque" : 'next',
- 		"bikinimas" : 'next'}
+ 		"bikinimas" : 'next',
+ 		"dreamclosetcouture" : 'next'}
+
+namePatterns = {"lucidfashionshop" : '>[a-zA-Z \-0-9]*?<',
+ 		"thebohoboutique" : '>[a-zA-Z \-0-9]*?<',
+ 		"ariavoss" : '>[a-zA-Z \-0-9]*?<',
+ 		"blushque" : '\"[A-Za-z \-0-9]*?\\\"',
+ 		"bikinimas" : '>[a-zA-Z \-0-9]*?<',
+ 		"dreamclosetcouture" : '>[a-zA-Z \-0-9]*?<'}
 ##############################################################################
 
 
@@ -177,7 +198,7 @@ for siteName in sitesToLog:
 	lastList = simplejson.load(dataStore)
 	dataStore.close()
 
-	saveLog(newList, lastList, siteName, dateString, sites[siteName][0:(len(sites[siteName]) - len("collections/"))])
+	saveLog(newList, lastList, siteName, dateString, sites[siteName][0:(len(sites[siteName]) - len("collections/"))], namePatterns[siteName])
 
 raw_input("press any key to exit\n")
 exit()
