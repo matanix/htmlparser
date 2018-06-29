@@ -5,11 +5,11 @@ import json as simplejson
 import datetime
 import base64
 import os.path
-from os import listdir
-from os.path import isfile, join
+from os import listdir, makedirs
+from os.path import isfile, join, exists
 
-
-def getNewList(userUrl):
+###########################################FUNCTIONS######################################################
+def getNewList(userUrl, pattern, nextPattern):
 	#Parsing variables
 	lastPage = False
 	page = 1 
@@ -34,9 +34,11 @@ def getNewList(userUrl):
 
 		tempContent = file.read()
 
-		pageList = re.findall('product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n', tempContent)
-		pageList += re.findall('item[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{2,40}title[a-zA-Z0-9\-_\"></ .= ]{6,41}\n', tempContent)
-		pageList += re.findall('product-card__name[a-zA-Z0-9\-_\"></ =.]{2,40}\n',tempContent)
+		pageList = re.findall(pattern, tempContent)
+
+		#pageList = re.findall('product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n', tempContent)
+		#pageList += re.findall('item[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{2,40}title[a-zA-Z0-9\-_\"></ .= ]{6,41}\n', tempContent)
+		#pageList += re.findall('product-card__name[a-zA-Z0-9\-_\"></ =.]{2,40}\n',tempContent)
 
 		if 'items-product-title"></span>\n' in pageList:
 			pageList.remove('product-title"></span>\n')
@@ -45,7 +47,7 @@ def getNewList(userUrl):
 		print pageList
 
 		#Check if last
-		nextCheck = re.findall('next', tempContent)
+		nextCheck = re.findall(nextPattern, tempContent)
 
 		if len(nextCheck) == 0 or len(pageList) <= 4:
 			lastPage = True
@@ -55,131 +57,130 @@ def getNewList(userUrl):
 	return newList
 
 
-def saveLog(newList, lastList, siteName, preference):
+def saveLog(newList, lastList, siteName, dateString, baseSiteUrl):
 	log = ""
 
 	for newProduct in newList:
+
+		#find the search link for the item
+		searchLink = ""
+		productName = re.search('>[a-zA-Z ]*?<', newProduct)
+		productName = productName.group(0)[1:len(productName.group(0))-1]
+		words = productName.split(' ')
+		searchLink = baseSiteUrl + "search?q="
+		for word in words:
+			searchLink += word + "+"
+		if searchLink[len(searchLink) - 1] == '+':
+			searchLink = searchLink[0:len(searchLink) - 1]
+
+		#check if new item
 		if newProduct not in lastList:
 			log += "product:"
-			log += newProduct
+			log += productName
 			log += "\n"
 			log += "newly added to spot (new best seller)" + str(newList.index(newProduct)) 
 			log += "\n"
+			if searchLink != "":
+						log += "search link : {}\n".format(searchLink)
 
+		#check if item upgraded in spot
 		for lastProduct in lastList:
 			if (newProduct == lastProduct) and (newList.index(newProduct) != lastList.index(lastProduct)):
-				if (newList.index(newProduct) > lastList.index(lastProduct)):
+				if (newList.index(newProduct) < lastList.index(lastProduct)):
 					log += "product:"
-					log += newProduct
+					log += productName
 					log += "changed from spot " + str(lastList.index(lastProduct)) 
 					log += "to spot " + str(newList.index(newProduct))
-					log += "\n\n"
+					log += "\t (jumped {})".format(lastList.index(lastProduct) - newList.index(newProduct))
+					log += "\n"
+					if searchLink != "":
+						log += "search link : {}\n".format(searchLink)
 
-
+	#check if item removed
 	for lastProduct in lastList:
 		if lastProduct not in newList:
 			log += "product:"
-			log += lastProduct
+			log += productName
 			log += "\n"
 			log += "was removed from the site (probably shit product eh?)\n"
 
 
-	#save log of comparison
-	if preference == "1":
-		logName =  siteName + '-' + 'history-vs-{date:%Y-%m-%d-%H-%M-%S}.txt'.format(date=datetime.datetime.now())
-	else:
-		logName = siteName + '-' + 'recent-vs-{date:%Y-%m-%d-%H-%M-%S}.txt'.format(date=datetime.datetime.now())
+	#check if need to create this date's dir
+	
+	logDir = "logs/" + dateString
 
-	logFile = open("logs/" + logName, 'w')
+	if not os.path.exists(logDir):
+		os.makedirs(logDir)
+
+	logFile = open(logDir + '/' + siteName, 'w')
+
 	logFile.write(log)
 
-
-def saveAsLastData(lastFileName, newList):
-	#Save the run as last data
-	dataStore = open("data/" + lastFileName, 'w')
-	simplejson.dump(newList, dataStore)
-	dataStore.close()
+	logFile.close()
+######################################################################################
 
 
+###########################SITES DATA#######################################
+sites = {"lucidfashionshop" : "https://lucidfashionshop.com/collections/",
+ 		"thebohoboutique" : "https://thebohoboutique.com/collections/",
+ 		"ariavoss" : "https://ariavoss.com/collections/",
+ 		"blushque" : "https://www.blushque.com/collections/",
+ 		"bikinimas" : "https://bikinimas.com/collections/"}
 
-userUrl = raw_input("Please enter the url you want information on or 0 to check all\n")
+patterns = {"lucidfashionshop" : 'product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n',
+ 		"thebohoboutique" : 'item[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{2,40}title[a-zA-Z0-9\-_\"></ .= ]{6,41}\n',
+ 		"ariavoss" : 'product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n',
+ 		"blushque" : 'product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n',
+ 		"bikinimas" : 'product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n'}
 
-siteName = ""
-
-if userUrl == "0":
-	lastListExists = True
-else:
-	lastListExists = False
-	siteName = re.search("//.*?\.", userUrl).group(0)
-
-firstFileName = base64.b64encode(userUrl)
-lastFileName = base64.b64encode(userUrl + "last")
+nextPatterns = {"lucidfashionshop" : 'next',
+ 		"thebohoboutique" : 'next',
+ 		"ariavoss" : 'next',
+ 		"blushque" : 'next',
+ 		"bikinimas" : 'next'}
+##############################################################################
 
 
 
-#if os.path.isfile("data/" + firstFileName):
-#	lastListExists = True
+#############################################################################
+####################################CODE#####################################
+#############################################################################
+mypath = "data/"
+files = [f for f in listdir(mypath) if isfile(join(mypath, f))]		
 
-if not lastListExists:
-	print "This is the first time you try the script on this site\n"
-	print "No results will be created, there is nothing to compare yet\n"
+sitesToLog = []
 
-else:
-	preference = ""
+#check if any data is missing
+for siteName in sites.keys():
+	if siteName not in files:
+		print siteName + " data missing. gathering and saving now."
+		newList = getNewList(sites[siteName], patterns[siteName], nextPatterns[siteName])
 
-	while preference != "1" and preference != "2" :
-		print "Enter 1 for information since first data gathering\n"
-		print "Enter 2 for information since last data gathering\n"
-		preference = raw_input()
-
-	mypath = "data/"
-	onlyfiles = [f for f in listdir(mypath) if isfile(join(mypath, f))]		
-
-	for file in onlyfiles:
-		name = base64.b64decode(file)
-	
-		if ("last" in name) and (preference == "2"): 
-			name = name[0:len(name)-4]
-			fileName = name
-		elif (preference == "1") and ("last" not in name):
-			fileName = name
-		else:
-			continue
-		
-		siteName = re.search("//.*?\.", fileName).group(0)
-
-		newList = getNewList(name)
-
-		#Get the first time data 
-		dataStore = open('data/' + base64.b64encode(fileName), 'r')
-		lastList = simplejson.load(dataStore)
+		#store the missing data
+		dataStore = open("data/" + siteName, 'w')
+		simplejson.dump(newList, dataStore)
 		dataStore.close()
-	
-		saveLog(newList, lastList, siteName, preference)
 
-		saveAsLastData(base64.b64encode(fileName + 'last'), newList)
-
-	raw_input("press any key to exit\n")
-	exit()
+	else:
+		sitesToLog.append(siteName)
 
 
 
+#calculate the data for this log's directory
+dateString = "{date:%Y-%m-%d-%H-%M-%S}".format(date=datetime.datetime.now())
 
-newList = getNewList(userUrl)
-
-log = ""
-
-
-#if first time, save also as first time
-if not lastListExists:
-	dataStore = open("data/" + firstFileName, 'w')
-	simplejson.dump(newList, dataStore)
+#save logs of comparison
+for siteName in sitesToLog:
+	print "doing log for " + siteName
+	newList = getNewList(sites[siteName], patterns[siteName], nextPatterns[siteName])
+	dataStore = open("data/" + siteName, 'r')
+	lastList = simplejson.load(dataStore)
 	dataStore.close()
 
-saveAsLastData(lastFileName, newList)
+	saveLog(newList, lastList, siteName, dateString, sites[siteName][0:(len(sites[siteName]) - len("collections/"))])
 
 raw_input("press any key to exit\n")
-
+exit()
 
 
 
