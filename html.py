@@ -9,7 +9,7 @@ from os import listdir, makedirs
 from os.path import isfile, join, exists
 
 ###########################################FUNCTIONS######################################################
-def getNewList(userUrl, pattern, nextPattern):
+def getNewList(userUrl, pattern, nextPattern, add = True):
 	#Parsing variables
 	lastPage = False
 	page = 1 
@@ -18,11 +18,14 @@ def getNewList(userUrl, pattern, nextPattern):
 
 	#get the new list
 	while lastPage != True:
-		#Calculate url by page
-		url = userUrl
-		url +=  "all?page="
-		url += str(page)
-		url += "&sort_by=best-selling"
+		if add:
+			#Calculate url by page
+			url = userUrl
+			url +=  "all?page="
+			url += str(page)
+			url += "&sort_by=best-selling"
+		else:
+			url = userUrl
 
 		#Get the rows
 		try:
@@ -49,7 +52,7 @@ def getNewList(userUrl, pattern, nextPattern):
 		#Check if last
 		nextCheck = re.findall(nextPattern, tempContent)
 
-		if len(nextCheck) == 0 or len(pageList) <= 4:
+		if len(nextCheck) == 0 or len(pageList) <= 4 or not add:
 			lastPage = True
 
 		page += 1
@@ -136,7 +139,7 @@ sites = {"lucidfashionshop" : "https://lucidfashionshop.com/collections/",
  		"thebohoboutique" : "https://thebohoboutique.com/collections/",
  		"ariavoss" : "https://ariavoss.com/collections/",
  		"blushque" : "https://www.blushque.com/collections/",
- 		"bikinimas" : "https://bikinimas.com/collections/",
+ 		"bikinimas" : "https://bikinimas.com/collections/mas-summer",
  		"dreamclosetcouture" : "https://dreamclosetcouture.us/collections/"}
 
 patterns = {"lucidfashionshop" : 'product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n',
@@ -159,6 +162,13 @@ namePatterns = {"lucidfashionshop" : '>[a-zA-Z \-0-9]*?<',
  		"blushque" : '\"[A-Za-z \-0-9]*?\\\"',
  		"bikinimas" : '>[a-zA-Z \-0-9]*?<',
  		"dreamclosetcouture" : '>[a-zA-Z \-0-9]*?<'}
+
+toAdd = {"lucidfashionshop" : True,
+ 		"thebohoboutique" : True,
+ 		"ariavoss" : True,
+ 		"blushque" : True,
+ 		"bikinimas" : False,
+ 		"dreamclosetcouture" : True}
 ##############################################################################
 
 
@@ -175,7 +185,7 @@ sitesToLog = []
 for siteName in sites.keys():
 	if siteName not in files:
 		print siteName + " data missing. gathering and saving now."
-		newList = getNewList(sites[siteName], patterns[siteName], nextPatterns[siteName])
+		newList = getNewList(sites[siteName], patterns[siteName], nextPatterns[siteName], add = toAdd[siteName])
 
 		#store the missing data
 		dataStore = open("data/" + siteName, 'w')
@@ -193,7 +203,7 @@ dateString = "{date:%Y-%m-%d-%H-%M-%S}".format(date=datetime.datetime.now())
 #save logs of comparison
 for siteName in sitesToLog:
 	print "doing log for " + siteName
-	newList = getNewList(sites[siteName], patterns[siteName], nextPatterns[siteName])
+	newList = getNewList(sites[siteName], patterns[siteName], nextPatterns[siteName], add = toAdd[siteName])
 	dataStore = open("data/" + siteName, 'r')
 	lastList = simplejson.load(dataStore)
 	dataStore.close()
