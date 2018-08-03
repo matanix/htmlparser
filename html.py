@@ -7,14 +7,47 @@ import base64
 import os.path
 from os import listdir, makedirs
 from os.path import isfile, join, exists
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import Select
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.common.exceptions import NoSuchElementException
+from selenium.common.exceptions import NoAlertPresentException
+import sys
+
+import unittest, time, re
+
+def selget(url):
+    driver = webdriver.Firefox()
+    driver.implicitly_wait(30)
+    verificationErrors = []
+    accept_next_alert = True
+    driver = driver
+    delay = 3
+    driver.get(url)
+   # driver.find_element_by_link_text("All").click()
+    for i in range(1,3):
+        driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+        time.sleep(4)
+    html_source = driver.page_source
+    data = html_source.encode('utf-8')
+
+    return data
+
 
 ###########################################FUNCTIONS######################################################
-def getNewList(userUrl, pattern, nextPattern, add = True):
+def getNewList(userUrl, pattern, nextPattern, add = True, isselget = False):
 	#Parsing variables
 	lastPage = False
 	page = 1 
 	content = ""
 	newList = []
+
+	if add == False:
+		isselget = True
 
 	#get the new list
 	while lastPage != True:
@@ -29,25 +62,25 @@ def getNewList(userUrl, pattern, nextPattern, add = True):
 
 		#Get the rows
 		try:
-			file = urllib.urlopen(url)
+			if isselget:
+				print "selget"
+				tempContent = selget(url)
+			else:
+				print "normal get"
+				file = urllib.urlopen(url)
+				tempContent = file.read()
+				file.close()
 		except:
 			print "Probably wrong URL. quitting\n"
 			raw_input("press any key to exit\n")
 			exit()
 
-		tempContent = file.read()
-
 		pageList = re.findall(pattern, tempContent)
-
-		#pageList = re.findall('product[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{1,40}title[a-zA-Z0-9\-_\"></ .=]{6,41}\n', tempContent)
-		#pageList += re.findall('item[s]{0,1}[a-zA-Z0-9\-_\"></ =.]{2,40}title[a-zA-Z0-9\-_\"></ .= ]{6,41}\n', tempContent)
-		#pageList += re.findall('product-card__name[a-zA-Z0-9\-_\"></ =.]{2,40}\n',tempContent)
 
 		if 'items-product-title"></span>\n' in pageList:
 			pageList.remove('product-title"></span>\n')
 
 		newList += pageList
-		#print pageList
 
 		#Check if last
 		nextCheck = re.findall(nextPattern, tempContent)
@@ -137,7 +170,7 @@ def saveLog(newList, lastList, siteName, dateString, baseSiteUrl, namePattern):
 ###########################SITES DATA#######################################
 sites = {"lucidfashionshop" : "https://lucidfashionshop.com/collections/",
  		"thebohoboutique" : "https://thebohoboutique.com/collections/",
- 		"ariavoss" : "https://ariavoss.com/collections/",
+ 		"ariavoss" : "https://ariavoss.com/collections/all-swimwear",
  		"blushque" : "https://www.blushque.com/collections/",
  		"bikinimas" : "https://bikinimas.com/collections/mas-summer",
  		"dreamclosetcouture" : "https://dreamclosetcouture.us/collections/"}
@@ -165,7 +198,7 @@ namePatterns = {"lucidfashionshop" : '>[a-zA-Z \-0-9]*?<',
 
 toAdd = {"lucidfashionshop" : True,
  		"thebohoboutique" : True,
- 		"ariavoss" : True,
+ 		"ariavoss" : False,
  		"blushque" : True,
  		"bikinimas" : False,
  		"dreamclosetcouture" : True}
